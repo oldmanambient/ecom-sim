@@ -1,6 +1,6 @@
 ﻿Platform Name,Implementation Cost,Month Cost Type,Monthly Cost Variable,Logo File,Fictional Name
 Shopify,0,fixed,29,TradeCloud.png,TradeCloud
-BigCommerce,0,fixed,39,MegaShop.png,MegaShop OS
+BigCommerce,0,fixed,39,MegaShop_1.png,MegaShop OS
 Wix eCommerce,0,fixed,23,SimpleCart.png,SimpleCart
 Salesforce Commerce Cloud,100000,license,5000,HyperScaleX.png,HyperScaleX
 Adobe Commerce (Magento Cloud),15000,license,3000,ForgeEngine.png,ForgeEngine
@@ -10,3 +10,4 @@ Shopwired,500,fixed,20,ConnectCart.png,ConnectCart
 Visualsoft,0,variable,5,VisiMart.png,VisiMart
 
 MinrCore,100000,none,0,MinrCore.png,MinrCore
+
