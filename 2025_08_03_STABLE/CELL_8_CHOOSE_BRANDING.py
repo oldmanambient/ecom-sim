@@ -1,91 +1,144 @@
-# 💸 Cell 7 — Pricing, Margin & Sensitivity + Summary
+# ---Set Up Branding
 
 import gradio as gr
+import numpy as np
+from PIL import Image
 
-IMG_PRODUCT = "https://raw.githubusercontent.com/oldmanambient/ecom-sim/main/product_price.png"
-selected_categories = session_state.get("product_categories", [])
+# Character image
+IMG_COMPUTER = "https://raw.githubusercontent.com/oldmanambient/ecom-sim/main/computer.png"
 
-def calculate_pricing(margin, markup):
-    try:
-        cost = round(margin / (markup / 100), 2)
-        price = round(cost + margin, 2)
-        return cost, price
-    except:
-        return 0.0, 0.0
+# Web-safe palette
+APPROVED_COLORS = {
+    "red": (255, 0, 0), "blue": (0, 0, 255), "green": (0, 128, 0),
+    "orange": (255, 165, 0), "purple": (128, 0, 128), "grey": (128, 128, 128),
+    "black": (0, 0, 0), "white": (255, 255, 255),
+    "turquoise": (64, 224, 208), "indigo": (75, 0, 130)
+}
 
-# Save logic + build summary
-def save_pricing_and_show_summary(*args):
-    pricing_data = {}
-    summary_html = "<b>Pricing Summary</b><br><table><tr><th>Category</th><th>Avg Price (£)</th><th>Margin %</th><th>Margin £</th></tr>"
+# Syllables for brand name generation
+SYLLABLES = ["zor", "tek", "ly", "vox", "neo", "quix", "zen", "tra", "lum", "cy"]
 
-    for i, cat in enumerate(selected_categories):
-        margin = args[i * 3]
-        markup = args[i * 3 + 1]
-        sensitivity = args[i * 3 + 2]
-        cost, price = calculate_pricing(margin, markup)
-        margin_pct = round((margin / price) * 100, 1) if price > 0 else 0.0
+# Generate brand name options
+def generate_brand_names():
+    category = session_state.get("product_categories", ["item"])[0].lower()
+    options = []
+    rng = np.random.default_rng()
+    for _ in range(5):
+        name = "".join(rng.choice(SYLLABLES, size=2))
+        options.append(f"{name.capitalize()}{category}.com")
+    return options
 
-        pricing_data[cat] = {
-            "margin": margin,
-            "markup_percent": markup,
-            "cost": cost,
-            "price": price,
-            "sensitivity": sensitivity
-        }
+# Save confirmed brand name
+def confirm_brand(name):
+    session_state["brand_name"] = name
+    return f"✅ Brand name confirmed: {name}"
 
-        summary_html += f"<tr><td>{cat}</td><td>£{price:,.2f}</td><td>{margin_pct:.1f}%</td><td>£{margin:,.2f}</td></tr>"
+# Logo generation
+def generate_logo_safe(seed=None):
+    rng = np.random.default_rng(seed)
+    bg_name = rng.choice(list(APPROVED_COLORS.keys()))
+    fg_name = rng.choice([c for c in APPROVED_COLORS if c != bg_name])
+    bg_color = APPROVED_COLORS[bg_name]
+    fg_color = APPROVED_COLORS[fg_name]
 
-    summary_html += "</table>"
+    grid_size = 10
+    cell_size = 10
+    border = 2
+    img_size = grid_size * cell_size + border * 2
+    img = Image.new("RGB", (img_size, img_size), bg_color)
 
-    session_state["pricing"] = pricing_data
-    return "✅ Pricing and sensitivity saved!", gr.update(value=summary_html, visible=True)
+    for x in range(img_size):
+        for y in range(img_size):
+            if x < border or y < border or x >= img_size - border or y >= img_size - border:
+                img.putpixel((x, y), fg_color)
+
+    for y in range(grid_size):
+        half_row = [rng.integers(0, 2) for _ in range(grid_size // 2)]
+        full_row = half_row + half_row[::-1]
+        for x, val in enumerate(full_row):
+            if val:
+                for dx in range(cell_size):
+                    for dy in range(cell_size):
+                        px = border + x * cell_size + dx
+                        py = border + y * cell_size + dy
+                        img.putpixel((px, py), fg_color)
+    return img
+
+# Setup session state
+session_state["logo_set"] = [generate_logo_safe(seed=i) for i in range(5)]
+session_state["confirmed_logo"] = None
+session_state["brand_name"] = None
+
+def regenerate_logos():
+    new_logos = [generate_logo_safe(seed=i + np.random.randint(1000)) for i in range(5)]
+    session_state["logo_set"] = new_logos
+    return new_logos
+
+def confirm_logo(index):
+    idx = int(index)
+    selected = session_state["logo_set"][idx]
+    session_state["confirmed_logo"] = selected
+    name = session_state.get("brand_name", "🚫 No brand name selected!")
+    img_data = pil_to_base64(selected)
+
+    summary_html = f"""
+    <div style='display:flex; align-items:center; gap:20px;'>
+        <div><h3>✅ Brand Summary</h3><b>{name}</b></div>
+        <div><img src='data:image/png;base64,{img_data}' width='100'></div>
+    </div>
+    """
+
+    return "✅ Logo confirmed!", selected, gr.update(value=summary_html, visible=True)
+
+
+# Convert PIL image to base64 for embedding
+import base64
+from io import BytesIO
+def pil_to_base64(pil_img):
+    buffered = BytesIO()
+    pil_img.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode()
 
 # --- UI ---
-with gr.Blocks() as pricing_ui:
-    gr.Markdown("## 💸 Step 5: Set Target Margin, Pricing, and Sensitivity")
+with gr.Blocks() as brand_ui:
+    gr.Markdown("## 🧠 Step 6: Build Your Brand Identity")
 
     with gr.Row():
-        with gr.Column(scale=1):
-            gr.Image(value=IMG_PRODUCT, width=96, show_label=False, show_download_button=False)
-        with gr.Column(scale=4):
-            gr.Markdown(
-                "For each product category, set:<br>"
-                "- Your <b>target margin per item</b><br>"
-                "- Your <b>markup %</b><br>"
-                "- The category's <b>price sensitivity</b><br><br>"
-                "We'll calculate your cost and selling price automatically.")
+        with gr.Column(scale=0.5):
+            gr.Image(value=IMG_COMPUTER, show_label=False, width=96)
+        with gr.Column(scale=2):
+            brand_opts = gr.Radio(choices=generate_brand_names(), label="Choose Your Brand Name")
+            confirm_name_btn = gr.Button("✅ Confirm Brand Name")
+            name_status = gr.Markdown()
+
+    confirm_name_btn.click(fn=confirm_brand, inputs=brand_opts, outputs=name_status)
 
     gr.Markdown("---")
+    gr.Markdown("## 🎨 Choose a Logo")
 
-    inputs = []
-    outputs = []
+    with gr.Row():
+        regen_btn = gr.Button("🔁 Regenerate Logos")
+        logo_selector = gr.Radio(["0", "1", "2", "3", "4"], label="Select Logo")
 
-    for cat in selected_categories:
-        gr.Markdown(f"### {cat}")
-        with gr.Row():
-            margin_input = gr.Number(label="Target Margin (£)", value=20)
-            markup_input = gr.Number(label="Markup %", value=100)
-            sensitivity_slider = gr.Slider(label="Price Sensitivity (0–100)", minimum=0, maximum=100, value=50)
-        with gr.Row():
-            cost_output = gr.Number(label="Cost Price (£)", interactive=False)
-            price_output = gr.Number(label="Selling Price (£)", interactive=False)
+    with gr.Row():
+        img0 = gr.Image(value=session_state["logo_set"][0], show_label=False, width=100)
+        img1 = gr.Image(value=session_state["logo_set"][1], show_label=False, width=100)
+        img2 = gr.Image(value=session_state["logo_set"][2], show_label=False, width=100)
+        img3 = gr.Image(value=session_state["logo_set"][3], show_label=False, width=100)
+        img4 = gr.Image(value=session_state["logo_set"][4], show_label=False, width=100)
 
-        def make_updater():
-            def updater(margin, markup):
-                return calculate_pricing(margin, markup)
-            return updater
+    def update_all():
+        new_imgs = regenerate_logos()
+        return tuple(new_imgs)
 
-        updater_fn = make_updater()
-        margin_input.change(fn=updater_fn, inputs=[margin_input, markup_input], outputs=[cost_output, price_output])
-        markup_input.change(fn=updater_fn, inputs=[margin_input, markup_input], outputs=[cost_output, price_output])
+    regen_btn.click(fn=update_all, inputs=[], outputs=[img0, img1, img2, img3, img4])
 
-        inputs.extend([margin_input, markup_input, sensitivity_slider])
-        outputs.extend([cost_output, price_output])
+    confirm_btn = gr.Button("✅ Confirm Logo")
+    logo_status = gr.Markdown()
+    confirmed_logo = gr.Image(visible=False)
+    summary_text = gr.HTML(visible=False)
 
-    save_btn = gr.Button("✅ Save Pricing & Sensitivity")
-    save_status = gr.Markdown("")
-    summary_table = gr.HTML(visible=False)
 
-    save_btn.click(fn=save_pricing_and_show_summary, inputs=inputs, outputs=[save_status, summary_table])
+    confirm_btn.click(fn=confirm_logo, inputs=[logo_selector], outputs=[logo_status, confirmed_logo, summary_text])
 
-pricing_ui.launch()
+brand_ui.launch()
